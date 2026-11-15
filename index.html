@@ -68,8 +68,10 @@
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;}
   .card{
     background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--muted);
-    border-radius:10px;padding:14px 16px;
+    border-radius:10px;padding:14px 16px;cursor:pointer;
   }
+  .card:hover{border-color:var(--mild);}
+  .card:focus-visible{outline:2px solid var(--mild);outline-offset:2px;}
   .card .name{font-weight:600;font-size:15px;margin-bottom:8px;}
   .card .row1{display:flex;align-items:center;gap:8px;}
   .card .icon{font-size:26px;line-height:1;}
@@ -81,6 +83,31 @@
 
   footer{margin-top:36px;color:var(--muted);font-size:12.5px;border-top:1px solid var(--line);padding-top:16px;}
   footer a{text-decoration:underline;}
+
+  .modal-overlay{
+    display:none;position:fixed;inset:0;background:rgba(5,15,20,0.6);
+    align-items:center;justify-content:center;padding:20px;z-index:50;
+  }
+  .modal-overlay.open{display:flex;}
+  .modal{
+    background:var(--panel-2);border:1px solid var(--line);border-radius:14px;
+    max-width:420px;width:100%;max-height:85vh;overflow:auto;padding:24px;position:relative;
+  }
+  .modal-close{
+    position:absolute;top:12px;right:12px;background:transparent;border:none;color:var(--muted);
+    font-size:20px;line-height:1;cursor:pointer;padding:4px;
+  }
+  .modal-close:hover{color:var(--text);}
+  .modal-close:focus-visible{outline:2px solid var(--mild);outline-offset:2px;}
+  .modal .mhead{display:flex;align-items:center;gap:12px;margin-bottom:4px;}
+  .modal .micon{font-size:40px;}
+  .modal .mname{font-size:20px;font-weight:700;}
+  .modal .mtemp{font-family:'IBM Plex Mono',monospace;font-size:34px;font-weight:600;}
+  .modal .mdesc{color:var(--muted);font-size:13px;margin:4px 0 18px;}
+  .modal .mdetails{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;}
+  .modal .mrow{border-top:1px solid var(--line);padding-top:8px;}
+  .modal .mrow .mlabel{color:var(--muted);font-size:11.5px;margin-bottom:3px;}
+  .modal .mrow .mval{font-family:'IBM Plex Mono',monospace;font-size:15px;}
 
   @media (prefers-reduced-motion: reduce){ *{transition:none !important;animation:none !important;} }
 </style>
@@ -126,6 +153,13 @@
 
 </div>
 
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalName">
+    <button class="modal-close" id="modalClose" type="button" aria-label="Bağla">✕</button>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
 <script>
   // [rayon adı, en, boylam] — hər rayonun inzibati mərkəzinə yaxın təxmini koordinatlar
   const DISTRICTS = [
@@ -167,6 +201,9 @@
   };
   const wInfo = c => WMAP[c] || ["❓","Naməlum"];
   const tColor = t => t<=0?'var(--cold)':t<=15?'var(--cool)':t<=25?'var(--mild)':t<=32?'var(--warm)':'var(--hot)';
+  const COMPASS = ['Şimal','Şimal-Şərq','Şərq','Cənub-Şərq','Cənub','Cənub-Qərb','Qərb','Şimal-Qərb'];
+  const toCompass = deg => (deg===null||deg===undefined) ? '—' : COMPASS[Math.round(deg/45) % 8];
+  const hhmm = iso => iso ? iso.split('T')[1] : '—';
 
   let DATA = []; // {name, temp, feels, hum, wind, code}
 
@@ -186,8 +223,9 @@
     const lats = DISTRICTS.map(d=>d[1]).join(',');
     const lons = DISTRICTS.map(d=>d[2]).join(',');
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}` +
-      `&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,weather_code` +
-      `&timezone=Asia%2FBaku`;
+      `&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,wind_direction_10m,wind_gusts_10m,weather_code,pressure_msl,cloud_cover,precipitation` +
+      `&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_sum` +
+      `&forecast_days=1&timezone=Asia%2FBaku`;
     try{
       const res = await fetch(url);
       if(!res.ok) throw new Error('HTTP ' + res.status);
@@ -195,13 +233,24 @@
       const list = Array.isArray(json) ? json : [json];
       DATA = DISTRICTS.map((d, i) => {
         const c = list[i] && list[i].current;
+        const day = list[i] && list[i].daily;
         return {
           name: d[0],
           temp: c ? Math.round(c.temperature_2m) : null,
           feels: c ? Math.round(c.apparent_temperature) : null,
           hum: c ? Math.round(c.relative_humidity_2m) : null,
           wind: c ? Math.round(c.wind_speed_10m) : null,
-          code: c ? c.weather_code : null
+          gust: c ? Math.round(c.wind_gusts_10m) : null,
+          windDir: c ? c.wind_direction_10m : null,
+          pressure: c ? Math.round(c.pressure_msl) : null,
+          cloud: c ? Math.round(c.cloud_cover) : null,
+          precip: c ? c.precipitation : null,
+          code: c ? c.weather_code : null,
+          dayMax: day ? Math.round(day.temperature_2m_max[0]) : null,
+          dayMin: day ? Math.round(day.temperature_2m_min[0]) : null,
+          sunrise: day ? day.sunrise[0] : null,
+          sunset: day ? day.sunset[0] : null,
+          uv: day ? Math.round(day.uv_index_max[0]) : null
         };
       });
       const time = list[0] && list[0].current && list[0].current.time;
@@ -246,7 +295,7 @@
       const [icon, desc] = wInfo(d.code);
       const color = tColor(d.temp);
       return `
-        <div class="card" style="border-left-color:${color}">
+        <div class="card" style="border-left-color:${color}" data-name="${d.name}" tabindex="0" role="button" aria-haspopup="dialog">
           <div class="name">${d.name}</div>
           <div class="row1"><span class="icon">${icon}</span><span class="temp" style="color:${color}">${d.temp}°</span></div>
           <div class="desc">${desc} · hiss olunur ${d.feels}°</div>
@@ -254,6 +303,65 @@
         </div>`;
     }).join('');
   }
+
+  let lastFocused = null;
+
+  function openModal(name){
+    const d = DATA.find(x => x.name === name);
+    if(!d || d.temp === null) return;
+    const [icon, desc] = wInfo(d.code);
+    const color = tColor(d.temp);
+    document.getElementById('modalBody').innerHTML = `
+      <div class="mhead">
+        <span class="micon">${icon}</span>
+        <div>
+          <div class="mname" id="modalName">${d.name}</div>
+          <span class="mtemp" style="color:${color}">${d.temp}°</span>
+        </div>
+      </div>
+      <div class="mdesc">${desc} · hiss olunur ${d.feels}°</div>
+      <div class="mdetails">
+        <div class="mrow"><div class="mlabel">Bugün maks./min.</div><div class="mval">${d.dayMax}° / ${d.dayMin}°</div></div>
+        <div class="mrow"><div class="mlabel">Nəmlik</div><div class="mval">${d.hum}%</div></div>
+        <div class="mrow"><div class="mlabel">Külək</div><div class="mval">${d.wind} km/s, ${toCompass(d.windDir)}</div></div>
+        <div class="mrow"><div class="mlabel">Külək qüləsi</div><div class="mval">${d.gust} km/s</div></div>
+        <div class="mrow"><div class="mlabel">Təzyiq</div><div class="mval">${d.pressure} hPa</div></div>
+        <div class="mrow"><div class="mlabel">Buludluluq</div><div class="mval">${d.cloud}%</div></div>
+        <div class="mrow"><div class="mlabel">Yağıntı</div><div class="mval">${d.precip > 0 ? d.precip + ' mm' : 'Yox'}</div></div>
+        <div class="mrow"><div class="mlabel">UB indeksi</div><div class="mval">${d.uv}</div></div>
+        <div class="mrow"><div class="mlabel">Gündoğan</div><div class="mval">${hhmm(d.sunrise)}</div></div>
+        <div class="mrow"><div class="mlabel">Günbatan</div><div class="mval">${hhmm(d.sunset)}</div></div>
+      </div>`;
+    document.getElementById('modalOverlay').classList.add('open');
+    document.getElementById('modalClose').focus();
+  }
+
+  function closeModal(){
+    document.getElementById('modalOverlay').classList.remove('open');
+    if(lastFocused) lastFocused.focus();
+  }
+
+  document.getElementById('grid').addEventListener('click', e=>{
+    const card = e.target.closest('.card[data-name]');
+    if(!card) return;
+    lastFocused = card;
+    openModal(card.dataset.name);
+  });
+  document.getElementById('grid').addEventListener('keydown', e=>{
+    if(e.key !== 'Enter' && e.key !== ' ') return;
+    const card = e.target.closest('.card[data-name]');
+    if(!card) return;
+    e.preventDefault();
+    lastFocused = card;
+    openModal(card.dataset.name);
+  });
+  document.getElementById('modalClose').addEventListener('click', closeModal);
+  document.getElementById('modalOverlay').addEventListener('click', e=>{
+    if(e.target.id === 'modalOverlay') closeModal();
+  });
+  document.addEventListener('keydown', e=>{
+    if(e.key === 'Escape') closeModal();
+  });
 
   document.getElementById('search').addEventListener('input', render);
   document.getElementById('sort').addEventListener('change', render);
