@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Azərbaycan Hava Xəritəsi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B1D26;
+    --panel:#0F2630;
+    --panel-2:#132E3A;
+    --line:#1E3A47;
+    --text:#EDE7DD;
+    --muted:#8FA6B0;
+    --cold:#5AC8E0;
+    --cool:#7FD6A8;
+    --mild:#E3C76B;
+    --warm:#F2A65A;
+    --hot:#E8604C;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:radial-gradient(1200px 600px at 15% -10%, #113142 0%, var(--bg) 55%), var(--bg);
+    color:var(--text);
+    font-family:'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    min-height:100vh;
+    line-height:1.4;
+  }
+  a{color:inherit;}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 60px;}
+
+  header{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:22px;}
+  .title-block h1{font-size:28px;font-weight:700;margin:0 0 4px;letter-spacing:-0.01em;}
+  .title-block p{margin:0;color:var(--muted);font-size:14px;}
+  .clock{text-align:right;}
+  .clock .time{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;}
+  .clock .date{color:var(--muted);font-size:12px;}
+
+  .hero{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:22px;}
+  .hero-tile{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;}
+  .hero-tile .label{color:var(--muted);font-size:12px;margin-bottom:6px;}
+  .hero-tile .value{font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:600;}
+  .hero-tile .sub{color:var(--muted);font-size:12px;margin-top:2px;}
+
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px;}
+  .toolbar input, .toolbar select{
+    background:var(--panel);border:1px solid var(--line);color:var(--text);
+    border-radius:8px;padding:10px 12px;font-family:inherit;font-size:14px;
+  }
+  .toolbar input{flex:1 1 220px;min-width:180px;}
+  .toolbar input::placeholder{color:var(--muted);}
+  .toolbar input:focus, .toolbar select:focus, button:focus-visible{
+    outline:2px solid var(--mild);outline-offset:1px;
+  }
+  .toolbar button{
+    background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+    border-radius:8px;padding:10px 16px;font-family:inherit;font-size:14px;cursor:pointer;
+  }
+  .toolbar button:hover{border-color:var(--mild);}
+
+  .status{color:var(--muted);font-size:13px;margin-bottom:14px;}
+  .status.err{color:var(--hot);}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;}
+  .card{
+    background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--muted);
+    border-radius:10px;padding:14px 16px;
+  }
+  .card .name{font-weight:600;font-size:15px;margin-bottom:8px;}
+  .card .row1{display:flex;align-items:center;gap:8px;}
+  .card .icon{font-size:26px;line-height:1;}
+  .card .temp{font-family:'IBM Plex Mono',monospace;font-size:26px;font-weight:600;}
+  .card .desc{color:var(--muted);font-size:12.5px;margin-top:6px;}
+  .card .meta{display:flex;gap:12px;color:var(--muted);font-size:12px;margin-top:10px;font-family:'IBM Plex Mono',monospace;}
+
+  .empty{color:var(--muted);padding:30px 0;text-align:center;}
+
+  footer{margin-top:36px;color:var(--muted);font-size:12.5px;border-top:1px solid var(--line);padding-top:16px;}
+  footer a{text-decoration:underline;}
+
+  @media (prefers-reduced-motion: reduce){ *{transition:none !important;animation:none !important;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="title-block">
+      <h1>Azərbaycan Hava Xəritəsi</h1>
+      <p>Ölkənin 66 rayonu üzrə cari hava vəziyyəti</p>
+    </div>
+    <div class="clock">
+      <div class="time" id="clockTime">--:--</div>
+      <div class="date" id="clockDate">—</div>
+    </div>
+  </header>
+
+  <div class="hero" id="hero">
+    <div class="hero-tile"><div class="label">Ən isti</div><div class="value" id="hotVal">—</div><div class="sub" id="hotSub">yüklənir…</div></div>
+    <div class="hero-tile"><div class="label">Ən soyuq</div><div class="value" id="coldVal">—</div><div class="sub" id="coldSub">yüklənir…</div></div>
+    <div class="hero-tile"><div class="label">Orta temperatur</div><div class="value" id="avgVal">—</div><div class="sub">bütün rayonlar üzrə</div></div>
+  </div>
+
+  <div class="toolbar">
+    <input id="search" type="text" placeholder="Rayon axtar… (məs. Şəki, Quba)" aria-label="Rayon axtar">
+    <select id="sort" aria-label="Sırala">
+      <option value="name">Ada görə (A–Z)</option>
+      <option value="hot">Temperatur: isti → soyuq</option>
+      <option value="cold">Temperatur: soyuq → isti</option>
+    </select>
+    <button id="refresh" type="button">↻ Yenilə</button>
+  </div>
+
+  <div class="status" id="status">Hava məlumatları yüklənir…</div>
+
+  <div class="grid" id="grid"></div>
+
+  <footer>
+    Mənbə: <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a> açıq hava proqnozu API-si.
+    Koordinatlar rayon mərkəzlərinə yaxın təxmini nöqtələrdir, ona görə dəqiq məhəllə göstəricilərindən fərqlənə bilər.
+  </footer>
+
+</div>
+
+<script>
+  // [rayon adı, en, boylam] — hər rayonun inzibati mərkəzinə yaxın təxmini koordinatlar
+  const DISTRICTS = [
+    ["Abşeron",40.4514,49.7450],["Ağcabədi",40.0506,47.4525],["Ağdam",39.9910,46.9359],
+    ["Ağdaş",40.6472,47.4733],["Ağstafa",41.1181,45.4539],["Ağsu",40.2347,48.3706],
+    ["Astara",38.4347,48.8711],["Babək",39.1764,45.4061],["Balakən",41.7267,46.4067],
+    ["Bərdə",40.3772,47.1225],["Beyləqan",39.7703,47.6097],["Biləsuvar",39.4489,48.5553],
+    ["Cəbrayıl",39.3989,47.0208],["Cəlilabad",39.1917,48.4956],["Culfa",39.1764,45.6269],
+    ["Daşkəsən",40.5083,46.0569],["Füzuli",39.6025,47.1397],["Gədəbəy",40.5453,45.8161],
+    ["Goranboy",40.6072,46.7439],["Göyçay",40.6514,47.7389],["Göygöl",40.5867,46.3203],
+    ["Hacıqabul",39.9342,48.9308],["İmişli",39.8706,47.8406],["İsmayıllı",40.7814,48.1489],
+    ["Kəlbəcər",40.1047,46.0381],["Kəngərli",39.3253,45.2756],["Kürdəmir",40.3406,48.1572],
+    ["Laçın",39.6378,46.5486],["Lənkəran",38.7536,48.8519],["Lerik",38.7736,48.4178],
+    ["Masallı",39.0333,48.6667],["Neftçala",39.3831,49.2467],["Oğuz",41.0706,47.4592],
+    ["Ordubad",38.9086,46.0233],["Qəbələ",40.9789,47.8456],["Qax",41.4186,46.9208],
+    ["Qazax",41.0881,45.3617],["Qobustan",40.5267,48.9339],["Quba",41.3606,48.5131],
+    ["Qubadlı",39.3417,46.5731],["Qusar",41.4211,48.4317],["Saatlı",39.9333,48.3667],
+    ["Sabirabad",39.9906,48.4839],["Şabran",41.1964,48.9497],["Sədərək",39.7064,44.8697],
+    ["Şahbuz",39.4267,45.5578],["Şəki",41.2000,47.1708],["Salyan",39.5900,48.9833],
+    ["Şamaxı",40.6303,48.6425],["Şəmkir",40.8289,46.0192],["Samux",40.7869,46.5236],
+    ["Şərur",39.5572,44.9500],["Siyəzən",41.0769,49.1133],["Şuşa",39.7589,46.7486],
+    ["Tərtər",40.3372,46.9333],["Tovuz",40.9897,45.6283],["Ucar",40.5169,47.6500],
+    ["Xaçmaz",41.4625,48.8008],["Xızı",40.9014,49.0697],["Xocalı",39.9114,46.7944],
+    ["Xocavənd",39.7461,47.0572],["Yardımlı",38.9150,48.2458],["Yevlax",40.6125,47.1522],
+    ["Zəngilan",39.0867,46.6508],["Zaqatala",41.6306,46.6344],["Zərdab",40.3486,47.7108]
+  ];
+
+  const WMAP = {
+    0:["☀️","Açıq səma"],1:["🌤️","Əsasən açıq"],2:["⛅","Hissəvi buludlu"],3:["☁️","Tutqun"],
+    45:["🌫️","Duman"],48:["🌫️","Şaxtalı duman"],
+    51:["🌦️","Zəif çiskin"],53:["🌦️","Çiskin"],55:["🌦️","Güclü çiskin"],
+    56:["🌦️","Donan çiskin"],57:["🌦️","Güclü donan çiskin"],
+    61:["🌧️","Zəif yağış"],63:["🌧️","Yağış"],65:["🌧️","Güclü yağış"],
+    66:["🌧️","Donan yağış"],67:["🌧️","Güclü donan yağış"],
+    71:["🌨️","Zəif qar"],73:["🌨️","Qar"],75:["🌨️","Güclü qar"],77:["🌨️","Qar dənəcikləri"],
+    80:["🌦️","Zəif sağanaq"],81:["🌧️","Sağanaq yağış"],82:["🌧️","Güclü sağanaq"],
+    85:["🌨️","Qar sağanağı"],86:["🌨️","Güclü qar sağanağı"],
+    95:["⛈️","Tufan"],96:["⛈️","Dolu ilə tufan"],99:["⛈️","Güclü dolu ilə tufan"]
+  };
+  const wInfo = c => WMAP[c] || ["❓","Naməlum"];
+  const tColor = t => t<=0?'var(--cold)':t<=15?'var(--cool)':t<=25?'var(--mild)':t<=32?'var(--warm)':'var(--hot)';
+
+  let DATA = []; // {name, temp, feels, hum, wind, code}
+
+  function fmtClock(){
+    const now = new Date(new Date().toLocaleString('en-US',{timeZone:'Asia/Baku'}));
+    document.getElementById('clockTime').textContent =
+      now.toLocaleTimeString('az-AZ',{hour:'2-digit',minute:'2-digit'});
+    document.getElementById('clockDate').textContent =
+      now.toLocaleDateString('az-AZ',{weekday:'long',day:'numeric',month:'long'}) + ' · Bakı vaxtı';
+  }
+  fmtClock(); setInterval(fmtClock, 30000);
+
+  async function loadWeather(){
+    const statusEl = document.getElementById('status');
+    statusEl.classList.remove('err');
+    statusEl.textContent = 'Hava məlumatları yüklənir…';
+    const lats = DISTRICTS.map(d=>d[1]).join(',');
+    const lons = DISTRICTS.map(d=>d[2]).join(',');
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}` +
+      `&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,weather_code` +
+      `&timezone=Asia%2FBaku`;
+    try{
+      const res = await fetch(url);
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const json = await res.json();
+      const list = Array.isArray(json) ? json : [json];
+      DATA = DISTRICTS.map((d, i) => {
+        const c = list[i] && list[i].current;
+        return {
+          name: d[0],
+          temp: c ? Math.round(c.temperature_2m) : null,
+          feels: c ? Math.round(c.apparent_temperature) : null,
+          hum: c ? Math.round(c.relative_humidity_2m) : null,
+          wind: c ? Math.round(c.wind_speed_10m) : null,
+          code: c ? c.weather_code : null
+        };
+      });
+      const time = list[0] && list[0].current && list[0].current.time;
+      statusEl.textContent = time ? `Son yenilənmə: ${time.replace('T',' ')} (Bakı vaxtı)` : 'Yükləndi.';
+      render();
+    }catch(err){
+      statusEl.classList.add('err');
+      statusEl.textContent = 'Hava məlumatları yüklənə bilmədi — internet bağlantınızı yoxlayıb yenidən cəhd edin.';
+    }
+  }
+
+  function updateHero(){
+    const valid = DATA.filter(d => d.temp !== null);
+    if(!valid.length) return;
+    const hot = valid.reduce((a,b)=> b.temp > a.temp ? b : a);
+    const cold = valid.reduce((a,b)=> b.temp < a.temp ? b : a);
+    const avg = Math.round(valid.reduce((s,d)=>s+d.temp,0) / valid.length);
+    document.getElementById('hotVal').textContent = hot.temp + '°C';
+    document.getElementById('hotSub').textContent = hot.name;
+    document.getElementById('coldVal').textContent = cold.temp + '°C';
+    document.getElementById('coldSub').textContent = cold.name;
+    document.getElementById('avgVal').textContent = avg + '°C';
+  }
+
+  function render(){
+    updateHero();
+    const q = document.getElementById('search').value.trim().toLocaleLowerCase('az-AZ');
+    const sort = document.getElementById('sort').value;
+    let rows = DATA.filter(d => d.name.toLocaleLowerCase('az-AZ').includes(q));
+    if(sort === 'hot') rows = rows.slice().sort((a,b)=> (b.temp??-999) - (a.temp??-999));
+    else if(sort === 'cold') rows = rows.slice().sort((a,b)=> (a.temp??999) - (b.temp??999));
+    else rows = rows.slice().sort((a,b)=> a.name.localeCompare(b.name,'az'));
+
+    const grid = document.getElementById('grid');
+    if(!rows.length){
+      grid.innerHTML = '<div class="empty">Axtarışa uyğun rayon tapılmadı.</div>';
+      return;
+    }
+    grid.innerHTML = rows.map(d=>{
+      if(d.temp === null) return `
+        <div class="card"><div class="name">${d.name}</div><div class="desc">Məlumat yoxdur</div></div>`;
+      const [icon, desc] = wInfo(d.code);
+      const color = tColor(d.temp);
+      return `
+        <div class="card" style="border-left-color:${color}">
+          <div class="name">${d.name}</div>
+          <div class="row1"><span class="icon">${icon}</span><span class="temp" style="color:${color}">${d.temp}°</span></div>
+          <div class="desc">${desc} · hiss olunur ${d.feels}°</div>
+          <div class="meta"><span>💧 ${d.hum}%</span><span>💨 ${d.wind} km/s</span></div>
+        </div>`;
+    }).join('');
+  }
+
+  document.getElementById('search').addEventListener('input', render);
+  document.getElementById('sort').addEventListener('change', render);
+  document.getElementById('refresh').addEventListener('click', loadWeather);
+
+  loadWeather();
+</script>
+</body>
+</html>
